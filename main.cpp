@@ -1,131 +1,99 @@
 #include <iostream>
 #include <fstream>
-#include <thread>
 #include <vector>
-#include <map>
-#include <mutex>
-#include <sstream>
-
 using namespace std;
 
-map<string,int> finalCount;
 
-mutex mtx;
-
-string cleanWord(string w)
-
+// each frame stores a page and its aging counter
+struct Frame
 {
-    string result="";
-
-    for(char c : w)
-    {
-        if(isalpha(c))
-            result += tolower(c);
-    }
+    int page;
+    unsigned int age;
+};
 
 
-    return result;
-}
-
-void countWords(string part,int id)
+// simulate paging using Aging algorithm
+int simulate(vector<int> refs , int framesCount)
 {
-    map<string,int> localCount;
+    vector<Frame> memory;   // represents RAM
+    int faults = 0;         // counts page faults
 
-    stringstream ss(part);
-
-    string word;
-
-    while(ss >> word)
+    // go through all page references
+    for(int page : refs)
     {
-        word = cleanWord(word);
+        // ---- aging step ----
+        // shift all counters right (older pages lose importance)
+        for(auto &f : memory)
+            f.age >>= 1;
 
-        if(word!="")
-            localCount[word]++;
+        int hit = -1;
 
-    }
-
-    mtx.lock();
-
-    cout << "\nThread " << id << " result:\n";
-
-    for(auto p : localCount)
-        cout << p.first << " -> " << p.second << endl;
-
-
-    mtx.unlock();
-
-
-    mtx.lock();
-
-    for(auto p : localCount)
-        finalCount[p.first] += p.second;
-
-
-    mtx.unlock();
-}
-
-int main()
-
-
-{
-    ifstream file("input.txt");
-
-    if(!file)
-    {
-        cout << "input.txt not found\n";
-        return 0;
-    }
-
-    string text(
-            (istreambuf_iterator<char>(file)),
-            istreambuf_iterator<char>()
-    );
-
-    int N;
-    cout << "Enter number of threads: ";
-
-    cin >> N;
-
-
-    vector<thread> threads;
-
-
-    int partSize = text.size() / N;
-
-
-    for(int i=0;i<N;i++)
-    {
-        int start = i * partSize;
-        int end;
-
-        if(i == N-1)
-
-            end = text.size();
-        else
-            end = (i+1) * partSize;
-
-        if(i != 0)
-
+        // check if page already exists in memory
+        for(int i = 0 ; i < memory.size() ; i++)
         {
-            while(start < text.size() && text[start] != ' ')
-                start++;
+            if(memory[i].page == page)
+                hit = i;
         }
 
-        while(end < text.size() && text[end] != ' ')
-            end++;
+        // ---- PAGE HIT ----
+        if(hit != -1)
+        {
+            // mark page as recently used (set MSB)
+            memory[hit].age |= 128;
+        }
+        else
+        {
+            // ---- PAGE FAULT ----
+            faults++;
 
-        string part = text.substr(start,end-start);
+            // if free frame available
+            if(memory.size() < framesCount)
+            {
+                // add new page
+                memory.push_back({page,128});
+            }
+            else
+            {
+                // find page with smallest age (oldest page)
+                int victim = 0;
 
-        threads.push_back(thread(countWords,part,i+1));
+                for(int i = 1 ; i < memory.size() ; i++)
+                {
+                    if(memory[i].age < memory[victim].age)
+                        victim = i;
+                }
+
+                // replace oldest page
+                memory[victim] = {page,128};
+            }
+        }
     }
 
-    for(int i=0;i<threads.size();i++)
-        threads[i].join();
+    return faults;
+}
 
-    cout << " Final Word Frequency \n";
 
-    for(auto p : finalCount)
-        cout << p.first << " : " << p.second << endl;
 
-    return 0;
+int main()
+{
+    ifstream file("pages.txt");   // input file
+    vector<int> refs;
+    int x;
+
+    // read page references from file
+    while(file >> x)
+        refs.push_back(x);
+
+    cout<<"Frames\tFaults/1000\n";
+
+    // test different numbers of frames
+    for(int f = 1 ; f <= 10 ; f++)
+    {
+        int faults = simulate(refs , f);
+
+        // normalize faults per 1000 references
+        cout<<f<<"\t"
+            << (double)faults / refs.size() * 1000
+            << endl;
+    }
 }
