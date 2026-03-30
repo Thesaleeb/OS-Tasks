@@ -1,109 +1,65 @@
 #include <iostream>
-#include <fstream>
+#include <filesystem>
+#include <vector>
 
 using namespace std;
+namespace fs = std::filesystem;
 
-int main()
-{
-    ifstream f("input.txt");   // open file
+int main() {
+    string path;
+    int binSize;
 
-    int p , r;
-    f >> p;   // number of processes
-    f >> r;   // number of resources
+    // Ask user for folder path
+    cout << "Enter folder path: ";
+    getline(cin, path);  // allows spaces in path
 
-    int E[10];        // existing resources
-    int C[10][10];    // allocation
-    int R[10][10];    // requests
+    // Ask user for bin size
+    cout << "Enter bin size: ";
+    cin >> binSize;
 
-    int i , j;
+    vector<long long> sizes; // store file sizes
 
-    // read existing resources
-    for(i=0;i<r;i++)
-        f >> E[i];
-
-    // read allocation matrix
-    for(i=0;i<p;i++)
-        for(j=0;j<r;j++)
-            f >> C[i][j];
-
-    // read request matrix
-    for(i=0;i<p;i++)
-        for(j=0;j<r;j++)
-            f >> R[i][j];
-
-
-    int avail[10];
-
-    // calculate available resources
-    for(i=0;i<r;i++)
-    {
-        int used = 0;
-
-        for(j=0;j<p;j++)
-            used += C[j][i];
-
-        avail[i] = E[i] - used;
-    }
-
-
-    bool done[10];
-
-    // mark all processes unfinished
-    for(i=0;i<p;i++)
-        done[i] = false;
-
-
-    bool change = true;
-
-    while(change)
-    {
-        change = false;
-
-        for(i=0;i<p;i++)
-        {
-            if(done[i] == false)
-            {
-                bool ok = true;
-
-                for(j=0;j<r;j++)
-                {
-                    if(R[i][j] > avail[j])
-                        ok = false;
-                }
-
-                if(ok)
-                {
-                    // release resources
-                    for(j=0;j<r;j++)
-                        avail[j] += C[i][j];
-
-                    done[i] = true;
-                    change = true;
-                }
-            }
+    // Go through all files in the folder
+    for (auto file : fs::recursive_directory_iterator(path)) {
+        if (fs::is_regular_file(file)) {
+            sizes.push_back(fs::file_size(file)); // save size
         }
     }
 
-
-    bool deadlock = false;
-
-    for(i=0;i<p;i++)
-        if(done[i] == false)
-            deadlock = true;
-
-
-    if(deadlock == false)
-        cout<<"No deadlock in the system"<<endl;
-    else
-    {
-        cout<<"Deadlock detected\n";
-        cout<<"Processes: ";
-
-        for(i=0;i<p;i++)
-            if(done[i] == false)
-                cout<<"P"<<i<<" ";
-
-        cout<<endl;
+    // Find biggest file size
+    long long maxSize = 0;
+    for (long long s : sizes) {
+        if (s > maxSize)
+            maxSize = s;
     }
 
+    // Number of bins needed
+    int numberOfBins = (maxSize / binSize) + 1;
+
+    vector<int> bins(numberOfBins, 0); // all bins start at 0
+
+    // Put each file into a bin
+    for (long long s : sizes) {
+        int index = s / binSize;
+        bins[index]++;
+    }
+
+    // Print histogram
+    cout << "\nHistogram:\n";
+
+    for (int i = 0; i < numberOfBins; i++) {
+        long long start = i * binSize;
+        long long end = start + binSize - 1;
+
+        cout << start << " - " << end << " : ";
+
+        // Print stars
+        for (int j = 0; j < bins[i]; j++) {
+            cout << "*";
+        }
+
+        cout << " (" << bins[i] << ")" << endl;
+    }
+
+    return 0;
 }
