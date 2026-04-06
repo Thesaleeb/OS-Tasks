@@ -1,6 +1,11 @@
-cmake_minimum_required(VERSION 3.31)
-project(untitled)
+cmake_minimum_required(VERSION 3.20)
+project(ChatApp)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
-add_executable(untitled main.cpp)
+add_executable(server server.cpp)
+add_executable(client client.cpp)
+target_link_libraries(client PRIVATE ws2_32)
+
+target_link_libraries(server ws2_32)
+target_link_libraries(client ws2_32)
