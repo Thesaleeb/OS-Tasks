@@ -1,154 +1,74 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
+#include <string>
 
 using namespace std;
 
-struct Process {
-    int arrival;
-    int burst;
-};
+// Encrypt password using salt and 25 rounds
+string encryptPassword(string password, int salt) {
+    string encrypted = password;
 
-// FCFS
-double fcfs(vector<Process> p) {
-    sort(p.begin(), p.end(), [](Process a, Process b) {
-        return a.arrival < b.arrival;
-    });
-
-    int time = 0, totalWait = 0;
-
-    for (int i = 0; i < p.size(); i++) {
-        if (time < p[i].arrival)
-            time = p[i].arrival;
-
-        totalWait += time - p[i].arrival;
-        time += p[i].burst;
+    for (int round = 0; round < 25; round++) {
+        for (int i = 0; i < encrypted.length(); i++) {
+            encrypted[i] = encrypted[i] + (salt % 7) + 1;
+        }
     }
 
-    return (double)totalWait / p.size();
+    return encrypted;
 }
 
-// Simple SJF (non-preemptive)
-double sjf(vector<Process> p) {
-    int n = p.size();
-    vector<bool> done(n, false);
-
-    int time = 0, finished = 0, totalWait = 0;
-
-    while (finished < n) {
-        int idx = -1;
-        int minBurst = 9999;
-
-        for (int i = 0; i < n; i++) {
-            if (!done[i] && p[i].arrival <= time && p[i].burst < minBurst) {
-                minBurst = p[i].burst;
-                idx = i;
-            }
-        }
-
-        if (idx == -1) {
-            time++;
-            continue;
-        }
-
-        totalWait += time - p[idx].arrival;
-        time += p[idx].burst;
-
-        done[idx] = true;
-        finished++;
-    }
-
-    return (double)totalWait / n;
-}
-
-// Simple Round Robin
-double roundRobin(vector<Process> p, int q) {
-    int n = p.size();
-    vector<int> rem(n), wait(n, 0);
-
-    for (int i = 0; i < n; i++)
-        rem[i] = p[i].burst;
-
-    int time = 0;
-    bool done;
-
-    while (true) {
-        done = true;
-
-        for (int i = 0; i < n; i++) {
-            if (rem[i] > 0 && p[i].arrival <= time) {
-                done = false;
-
-                if (rem[i] > q) {
-                    time += q;
-                    rem[i] -= q;
-                } else {
-                    time += rem[i];
-                    wait[i] = time - p[i].burst - p[i].arrival;
-                    rem[i] = 0;
-                }
-            }
-        }
-
-        if (done)
-            break;
-
-        time++;
-    }
-
-    int totalWait = 0;
-    for (int i = 0; i < n; i++)
-        totalWait += wait[i];
-
-    return (double)totalWait / n;
-}
-
-// Simple text bar chart
-void drawChart(double a, double b, double c) {
-    cout << "\n--- Bar Chart ---\n";
-
-    cout << "FCFS: ";
-    for (int i = 0; i < a; i++) cout << "#";
-    cout << " (" << a << ")\n";
-
-    cout << "SJF : ";
-    for (int i = 0; i < b; i++) cout << "#";
-    cout << " (" << b << ")\n";
-
-    cout << "RR  : ";
-    for (int i = 0; i < c; i++) cout << "#";
-    cout << " (" << c << ")\n";
+// Check if password matches stored encrypted password
+bool isValidPassword(string inputPassword, int salt, string storedPassword) {
+    string encryptedInput = encryptPassword(inputPassword, salt);
+    return encryptedInput == storedPassword;
 }
 
 int main() {
-    int n;
-    cout << "Enter number of processes: ";
-    cin >> n;
+    vector<string> passwords = {
+        "apple123", "hello456", "code789", "osproject",
+        "network12", "secure99", "student55", "test123",
+        "final2026", "report88"
+    };
 
-    vector<Process> p(n);
+    vector<int> salts = {
+        101, 202, 303, 404, 505,
+        606, 707, 808, 909, 111
+    };
 
-    for (int i = 0; i < n; i++) {
-        cout << "Arrival time: ";
-        cin >> p[i].arrival;
+    vector<string> encryptedPasswords;
 
-        cout << "Burst time: ";
-        cin >> p[i].burst;
+    cout << "Generated Encrypted Passwords:\n";
+    for (int i = 0; i < 10; i++) {
+        string encrypted = encryptPassword(passwords[i], salts[i]);
+        encryptedPasswords.push_back(encrypted);
+
+        cout << "Password " << i + 1 << ": " << passwords[i]
+             << " | Salt: " << salts[i]
+             << " | Encrypted: " << encrypted << endl;
     }
 
-    int q;
-    cout << "Enter time quantum: ";
-    cin >> q;
+    string inputPassword;
+    int inputSalt;
 
-    double fc = fcfs(p);
-    double sj = sjf(p);
-    double rr = roundRobin(p, q);
+    cout << "\nEnter password to check: ";
+    cin >> inputPassword;
 
-    cout << "\nAverage Waiting Times:\n";
-    cout << "FCFS: " << fc << endl;
-    cout << "SJF: " << sj << endl;
-    cout << "Round Robin: " << rr << endl;
+    cout << "Enter salt: ";
+    cin >> inputSalt;
 
-    drawChart(fc, sj, rr);
+    bool found = false;
+
+    for (int i = 0; i < encryptedPasswords.size(); i++) {
+        if (isValidPassword(inputPassword, inputSalt, encryptedPasswords[i])) {
+            found = true;
+            break;
+        }
+    }
+
+    if (found)
+        cout << "Password is valid.\n";
+    else
+        cout << "Password is invalid.\n";
 
     return 0;
 }
